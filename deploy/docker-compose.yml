@@ -1,0 +1,32 @@
+# Temperature-monitor stack: MQTT broker + Go ingest/HTTP service.
+# Bring up with:  docker compose up -d --build
+name: tempmon
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  tempmon:
+    build:
+      context: ../server
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    ports:
+      - "8080:8080"
+    environment:
+      HTTP_ADDR: ":8080"
+      MQTT_URL: "tcp://mosquitto:1883"
+      MQTT_TOPIC: "sensors/+/temperature"
+      DB_PATH: "/data/tempmon.db"
+      STALE_THRESHOLD: "120s"
+    volumes:
+      - tempdb:/data
+
+volumes:
+  tempdb:

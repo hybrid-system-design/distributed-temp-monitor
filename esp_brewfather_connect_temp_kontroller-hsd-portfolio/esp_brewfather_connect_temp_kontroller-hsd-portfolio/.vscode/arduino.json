@@ -1,0 +1,8 @@
+{
+    "configuration": "FlashFreq=80,UploadSpeed=115200,DebugLevel=none",
+    "board": "esp32:esp32:esp32doit-devkit-v1",
+    "programmer": "esp32:esptool",
+    "port": "COM4",
+    "sketch": "esp_temp_controller.c",
+    "output": "C:\\Users\\Jan Erik\\Documents\\Arduino\\output\\esp_git"
+}

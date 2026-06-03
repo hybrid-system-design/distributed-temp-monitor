@@ -30,3 +30,27 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# --- project-specific ---
+
+# Firmware / device secrets (never commit real credentials)
+secrets.h
+settings.toml
+
+# Claude Code local state
+.claude/
+
+# SQLite database + WAL/shared-memory sidecars
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+
+# Go build output
+/server/tempmon
+tempmon
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
