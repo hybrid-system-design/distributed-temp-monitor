@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -94,6 +95,27 @@ func TestHistoryShape(t *testing.T) {
 	}
 	if resp.Points[0].Avg != 15.0 || resp.Points[0].N != 2 {
 		t.Errorf("point = %+v, want avg=15 n=2", resp.Points[0])
+	}
+}
+
+func TestDashboardServedAtRoot(t *testing.T) {
+	srv, _ := newTestServer(t)
+	rec := do(srv, "/")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET / status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("Content-Type = %q, want text/html", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "Temperature Monitor") {
+		t.Errorf("dashboard body missing expected marker")
+	}
+}
+
+func TestUnknownPathIs404(t *testing.T) {
+	srv, _ := newTestServer(t)
+	if rec := do(srv, "/nope"); rec.Code != http.StatusNotFound {
+		t.Fatalf("GET /nope status = %d, want 404", rec.Code)
 	}
 }
 

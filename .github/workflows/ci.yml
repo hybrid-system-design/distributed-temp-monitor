@@ -120,14 +120,8 @@ jobs:
           arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           arduino-cli core update-index
           arduino-cli core install esp32:esp32
-          arduino-cli lib install "Adafruit GFX Library" "Adafruit SSD1306" "Adafruit BusIO" "ArduinoHttpClient"
-      - name: Compile sketch
+          arduino-cli lib install "PubSubClient"
+      - name: Compile sensor sketch
         run: |
-          # Arduino requires the main .ino to share its folder's name; this repo's
-          # .ino doesn't match its folder, so stage a correctly-named sketch dir.
-          SRC="esp_brewfather_connect_temp_kontroller-hsd-portfolio/esp_brewfather_connect_temp_kontroller-hsd-portfolio"
-          SKETCH="$RUNNER_TEMP/esp_brewfather_connect_temp_kontroller"
-          mkdir -p "$SKETCH"
-          cp "$SRC/esp_brewfather_connect_temp_kontroller.ino" "$SKETCH/"
-          cp "$SRC/secrets.example.h" "$SKETCH/secrets.h"
-          arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 "$SKETCH"
+          cp firmware/sensor/secrets.example.h firmware/sensor/secrets.h
+          arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 firmware/sensor
