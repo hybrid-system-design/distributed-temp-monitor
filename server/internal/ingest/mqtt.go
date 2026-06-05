@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -48,8 +49,8 @@ func (in *Ingestor) Start() error {
 		SetCleanSession(true).
 		SetAutoReconnect(true).
 		SetConnectRetry(true).
-		SetConnectRetryInterval(5 * time.Second).
-		SetMaxReconnectInterval(30 * time.Second).
+		SetConnectRetryInterval(in.cfg.MQTTConnectRetryInterval).
+		SetMaxReconnectInterval(in.cfg.MQTTMaxReconnectInterval).
 		SetOnConnectHandler(func(c mqtt.Client) {
 			in.log.Printf("mqtt: connected, subscribing to %q", in.cfg.MQTTTopic)
 			// CleanSession drops subscriptions on reconnect, so re-subscribe
@@ -85,20 +86,45 @@ func (in *Ingestor) Stop() {
 // errors upward; ingestion must survive any malformed input.
 func (in *Ingestor) handle(_ mqtt.Client, msg mqtt.Message) {
 	now := time.Now()
-
-	var p payload
-	if err := json.Unmarshal(msg.Payload(), &p); err != nil {
-		in.log.Printf("ingest: drop bad json on %q: %v", msg.Topic(), err)
+	s, reason, ok := parseSample(msg.Topic(), msg.Payload(), now, in.cfg.SanityPast, in.cfg.SanityFuture)
+	if !ok {
+		in.log.Printf("ingest: drop message on %q: %s", msg.Topic(), reason)
 		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := in.store.Insert(ctx, s.sensorID, s.value, s.unit, s.eventTime, now.Unix()); err != nil {
+		in.log.Printf("ingest: store insert failed for %s: %v", s.sensorID, err)
+	}
+}
+
+// parsedSample is the validated, storable result of an incoming message.
+type parsedSample struct {
+	sensorID  string
+	value     float64
+	unit      string
+	eventTime int64
+}
+
+// parseSample validates and normalizes a raw MQTT message into a storable
+// sample. ok is false (with a human reason) when the payload is unusable, in
+// which case callers log-and-drop. It is pure (no I/O), so it can be unit- and
+// fuzz-tested directly — this is the wire-format trust boundary.
+func parseSample(topic string, raw []byte, now time.Time, past, future time.Duration) (parsedSample, string, bool) {
+	var p payload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return parsedSample{}, "bad json", false
 	}
 
 	sensorID := p.SensorID
 	if sensorID == "" {
-		sensorID = sensorFromTopic(msg.Topic())
+		sensorID = sensorFromTopic(topic)
 	}
 	if p.Value == nil || sensorID == "" {
-		in.log.Printf("ingest: drop invalid payload on %q (value or sensor_id missing)", msg.Topic())
-		return
+		return parsedSample{}, "missing value or sensor_id", false
+	}
+	if math.IsNaN(*p.Value) || math.IsInf(*p.Value, 0) {
+		return parsedSample{}, "non-finite value", false
 	}
 
 	unit := p.Unit
@@ -113,17 +139,11 @@ func (in *Ingestor) handle(_ mqtt.Client, msg mqtt.Message) {
 	if p.Timestamp != "" {
 		if parsed, err := time.Parse(time.RFC3339, p.Timestamp); err == nil {
 			ts, hasTS = parsed, true
-		} else {
-			in.log.Printf("ingest: %s bad timestamp %q, using arrival time", sensorID, p.Timestamp)
 		}
 	}
-	eventTime := resolveEventTime(ts, hasTS, now, in.cfg.SanityPast, in.cfg.SanityFuture)
+	eventTime := resolveEventTime(ts, hasTS, now, past, future)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := in.store.Insert(ctx, sensorID, *p.Value, unit, eventTime, now.Unix()); err != nil {
-		in.log.Printf("ingest: store insert failed for %s: %v", sensorID, err)
-	}
+	return parsedSample{sensorID: sensorID, value: *p.Value, unit: unit, eventTime: eventTime}, "", true
 }
 
 // resolveEventTime returns the canonical series time. It honors a sensor-reported

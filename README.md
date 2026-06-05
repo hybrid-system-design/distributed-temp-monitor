@@ -1,5 +1,7 @@
 # Temperature Monitor & Display System
 
+[![CI](https://github.com/hybrid-system-design/distributed-temp-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/hybrid-system-design/distributed-temp-monitor/actions/workflows/ci.yml)
+
 A distributed temperature-monitoring system: an ESP32 sensor node publishes
 readings over MQTT; a small Go service ingests them, persists to SQLite,
 downsamples server-side, and serves HTTP; an ESP32 display node polls HTTP and
@@ -162,6 +164,18 @@ go run ./cmd/tempmon        # needs a broker at MQTT_URL
 Dependencies (`modernc.org/sqlite` pure-Go driver, `eclipse/paho.mqtt.golang`)
 are pinned in `go.mod` with checksums in the committed `go.sum`. Run
 `go mod tidy` only after changing imports.
+
+## Testing
+
+Unit + fuzz + a real-broker integration suite (testcontainers) + container and
+firmware build checks, all run in CI on every push/PR. See **[TESTING.md](TESTING.md)**
+for the layered strategy and how to run each locally. Quick start:
+
+```bash
+cd server
+go test ./...                                          # unit (fast, no Docker)
+go test -tags integration -count=1 ./internal/integration/...   # needs Docker
+```
 
 ## Phase 2 — firmware (not yet implemented)
 
