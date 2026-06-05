@@ -52,6 +52,7 @@ double sampleBuf[AVG_SAMPLES];
 int sampleCount = 0;  // valid samples currently in the window (0..AVG_SAMPLES)
 int sampleHead = 0;   // ring-buffer write index
 double avgTemp = NAN; // current moving average (NAN until the first valid read)
+bool firstReadingSkipped = false; // the MAX6675's first conversion is unreliable
 
 bool haveDisplay = false;
 
@@ -190,7 +191,12 @@ void loop() {
   // Sample the thermocouple into the moving average and refresh the display ~1 Hz.
   if (millis() - lastRead >= READ_INTERVAL_MS) {
     lastRead = millis();
-    recordReading(readThermocouple());
+    double raw = readThermocouple();
+    if (firstReadingSkipped) {
+      recordReading(raw);
+    } else {
+      firstReadingSkipped = true; // discard the very first (unreliable) sample
+    }
     renderDisplay(avgTemp);
   }
 
