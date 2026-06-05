@@ -28,6 +28,10 @@ type Config struct {
 	// deviate from server wall-clock before we fall back to arrival time.
 	SanityPast   time.Duration
 	SanityFuture time.Duration
+	// MQTT reconnect tuning: interval between initial connect attempts, and the
+	// cap on the auto-reconnect backoff after a dropped connection.
+	MQTTConnectRetryInterval time.Duration
+	MQTTMaxReconnectInterval time.Duration
 }
 
 // Load reads configuration from the environment, applying defaults.
@@ -41,6 +45,9 @@ func Load() Config {
 		StaleThreshold: getdur("STALE_THRESHOLD", 120*time.Second),
 		SanityPast:     getdur("SANITY_PAST", 50*time.Hour),
 		SanityFuture:   getdur("SANITY_FUTURE", 5*time.Minute),
+
+		MQTTConnectRetryInterval: getdur("MQTT_CONNECT_RETRY_INTERVAL", 5*time.Second),
+		MQTTMaxReconnectInterval: getdur("MQTT_MAX_RECONNECT_INTERVAL", 30*time.Second),
 	}
 }
 
