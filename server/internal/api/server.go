@@ -6,6 +6,7 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -31,6 +32,7 @@ func New(st *store.Store, cfg config.Config, logger *log.Logger) *Server {
 // Handler returns the fully wired http.Handler (routes + CORS).
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.handleDashboard)
 	mux.HandleFunc("/api/current", s.handleCurrent)
 	mux.HandleFunc("/api/history", s.handleHistory)
 	mux.HandleFunc("/healthz", s.handleHealth)
@@ -146,6 +148,18 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// handleDashboard serves the self-contained web UI at "/". The mux routes every
+// otherwise-unmatched path here, so reject anything that isn't exactly "/".
+func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.WriteString(w, dashboardHTML)
 }
 
 // --- helpers ---

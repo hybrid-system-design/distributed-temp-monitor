@@ -21,15 +21,16 @@ ESP32 (Arduino, sensor)  --MQTT-->  Broker + Go service  --HTTP-->  ESP32 (Circu
 
 | Path | What it is |
 |------|------------|
-| `server/` | Go service: MQTT subscriber → SQLite → HTTP API (this is the running piece) |
+| `server/` | Go service: MQTT subscriber → SQLite → HTTP API + web dashboard at `/` |
 | `tools/simulator/` | Replay/simulator that publishes a canned 48h series to the broker |
 | `deploy/` | `docker-compose.yml` (broker + service + volume) and `mosquitto.conf` |
-| `bustime-display-main/` | Display node firmware (CircuitPython) — to be repurposed in Phase 2 |
-| `esp_brewfather_connect_temp_kontroller-hsd-portfolio/` | Sensor node firmware (Arduino) — to be repurposed in Phase 2 |
+| `firmware/sensor/` | Sensor node firmware (Arduino): reads MAX6675, publishes over MQTT |
+| `bustime-display-main/` | Display node firmware (CircuitPython) — repurposed in Phase 3 |
+| `esp_brewfather_connect_temp_kontroller-hsd-portfolio/` | Original Brewfather controller — superseded by `firmware/sensor/` |
 
-> **Status:** Phase 1 (server + infra + simulator) is implemented here. Repurposing
-> the two ESP32 firmwares to speak this contract is Phase 2 (see below). The data
-> contract is fixed so the firmware work has a stable seam to target.
+> **Status:** Phase 1 (server + infra) and Phase 2 (sensor firmware + web UI) are
+> implemented. The ESP32 display node is Phase 3 (see `ROADMAP.md`). The data
+> contract is fixed so each node has a stable seam to target.
 
 ## One-command bring-up
 
@@ -45,6 +46,9 @@ curl localhost:8080/healthz            # {"ok":true}
 docker compose logs -f tempmon         # watch ingest
 docker compose down                    # stop (add -v to wipe the DB volume)
 ```
+
+Then open **http://localhost:8080/** in a browser for the live dashboard (current
+value + 48h chart + staleness badge). Append `?sensor_id=<id>` to pick a sensor.
 
 The DB lives in the named volume `tempdb` (`/data/tempmon.db` in the container),
 so data survives restarts. Both services use `restart: unless-stopped`, so the
@@ -141,6 +145,9 @@ Query params: `hours` (default 48, clamped ≤720), `bucket` seconds (default 60
 
 **`GET /healthz`** — `{"ok":true}`.
 
+**`GET /`** — self-contained web dashboard (live value + 48h chart + stale badge);
+polls the two endpoints above. No external assets, so it works offline.
+
 ## Configuration (server env vars)
 
 | Var | Default | Meaning |
@@ -177,12 +184,24 @@ go test ./...                                          # unit (fast, no Docker)
 go test -tags integration -count=1 ./internal/integration/...   # needs Docker
 ```
 
-## Phase 2 — firmware (not yet implemented)
+## Sensor firmware (`firmware/sensor/`)
 
-- **Sensor (Arduino):** strip the WebServer/OLED/relay/buttons from the existing
-  Brewfather sketch; keep `readThermocouple()` and `connect_to_wifi()` (add an
-  in-loop reconnect); publish the MQTT payload above every N seconds.
-- **Display (CircuitPython):** replace the Entur GraphQL polling with
-  `GET /api/current` (~1s) and `GET /api/history` (~60s); reuse the existing
-  `adafruit_requests` + `displayio` scaffold; render the live value, the 48h
-  graph, and a "last seen" staleness banner when `stale` is true.
+A dumb Arduino sensor node: reads the MAX6675 thermocouple and publishes the MQTT
+payload above to `sensors/<SENSOR_ID>/temperature` every 5 s, reconnecting WiFi
+and MQTT as needed. No display/relay/clock — the server stamps arrival time.
+
+```
+cp firmware/sensor/secrets.example.h firmware/sensor/secrets.h   # set WiFi + broker
+arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 firmware/sensor
+arduino-cli upload  --fqbn esp32:esp32:esp32doit-devkit-v1 --port COM4 firmware/sensor
+```
+
+Requires the `PubSubClient` library. CI compiles this sketch on every push.
+
+## Phase 3 — display node (not yet implemented)
+
+Repurpose the CircuitPython display (`bustime-display-main/`): replace the Entur
+GraphQL polling with `GET /api/current` (~1s) and `GET /api/history` (~60s); reuse
+the existing `adafruit_requests` + `displayio` scaffold; render the live value,
+the 48h graph, and a "last seen" staleness banner when `stale` is true. See
+`ROADMAP.md`.
