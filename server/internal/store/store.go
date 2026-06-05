@@ -99,7 +99,7 @@ func (s *Store) Latest(ctx context.Context, sensorID string) (Latest, bool, erro
 		`SELECT value, unit, event_time, received_at
 		 FROM samples
 		 WHERE sensor_id = ?
-		 ORDER BY received_at DESC
+		 ORDER BY received_at DESC, event_time DESC, id DESC
 		 LIMIT 1`, sensorID).
 		Scan(&l.Value, &l.Unit, &l.EventTime, &l.ReceivedAt)
 	if err == sql.ErrNoRows {

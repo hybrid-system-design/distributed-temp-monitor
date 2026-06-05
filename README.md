@@ -54,7 +54,6 @@ Backfill 48h of realistic history, then optionally stream live samples:
 
 ```bash
 cd tools/simulator
-go mod tidy                                              # first run only
 go run . --broker tcp://localhost:1883 --sensor-id fermenter-1            # backfill
 go run . --broker tcp://localhost:1883 --sensor-id fermenter-1 --live     # backfill + live
 ```
@@ -156,13 +155,13 @@ Query params: `hours` (default 48, clamped ≤720), `bucket` seconds (default 60
 
 ```bash
 cd server
-go mod tidy
 go test ./...
 go run ./cmd/tempmon        # needs a broker at MQTT_URL
 ```
 
-`go.sum` is intentionally not committed yet; run `go mod tidy` once to fetch
-dependencies (`modernc.org/sqlite` pure-Go driver, `eclipse/paho.mqtt.golang`).
+Dependencies (`modernc.org/sqlite` pure-Go driver, `eclipse/paho.mqtt.golang`)
+are pinned in `go.mod` with checksums in the committed `go.sum`. Run
+`go mod tidy` only after changing imports.
 
 ## Phase 2 — firmware (not yet implemented)
 
