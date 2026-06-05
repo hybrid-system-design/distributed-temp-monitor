@@ -46,9 +46,9 @@ settings.toml
 *.db-shm
 *.sqlite
 
-# Go build output
+# Go build output (the compiled server binary; NOT the cmd/tempmon source dir)
 /server/tempmon
-tempmon
+/server/tempmon.exe
 
 # OS / editor cruft
 .DS_Store
