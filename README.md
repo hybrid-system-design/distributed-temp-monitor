@@ -186,8 +186,9 @@ go test -tags integration -count=1 ./internal/integration/...   # needs Docker
 
 ## Sensor firmware (`firmware/sensor/`)
 
-A dumb Arduino sensor node: reads the MAX6675 thermocouple, shows `T: <temp> C`
-on a local SSD1306 OLED, and publishes the MQTT payload above to
+A dumb Arduino sensor node: reads the MAX6675 thermocouple (reported as a moving
+average of the last 5 readings, since it's noisy), shows `T: <temp> C` on a local
+SSD1306 OLED, and publishes the MQTT payload above to
 `sensors/<SENSOR_ID>/temperature` every 5 s, reconnecting WiFi and MQTT as needed.
 No relay/clock — the server stamps arrival time. The OLED is optional (the sketch
 runs without it).

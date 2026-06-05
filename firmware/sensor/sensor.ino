@@ -1,7 +1,8 @@
 // Temperature sensor node for the distributed temperature monitor.
 //
-// Deliberately dumb: read a MAX6675 thermocouple, show it on a local OLED, and
-// publish JSON to MQTT — no relay, no local web server. Graceful WiFi/MQTT
+// Deliberately dumb: read a MAX6675 thermocouple (reported as a moving average,
+// since it's noisy), show it on a local OLED, and publish JSON to MQTT — no
+// relay, no local web server. Graceful WiFi/MQTT
 // reconnection. The server stamps arrival time, so this node carries no clock
 // and sends no timestamp (it is optional in the contract).
 //
@@ -34,6 +35,11 @@
 static const unsigned long PUBLISH_INTERVAL_MS = 5000;
 static const unsigned long READ_INTERVAL_MS    = 1000;
 
+// The thermocouple is noisy, so the reported value is a moving average of the
+// last N readings. At one read per second that smooths over ~N seconds — the
+// original unit averaged N=5.
+#define AVG_SAMPLES 5
+
 WiFiClient net;
 PubSubClient mqtt(net);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -41,7 +47,12 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 char topic[64];
 unsigned long lastPublish = 0;
 unsigned long lastRead = 0;
-double lastTemp = NAN;
+
+double sampleBuf[AVG_SAMPLES];
+int sampleCount = 0;  // valid samples currently in the window (0..AVG_SAMPLES)
+int sampleHead = 0;   // ring-buffer write index
+double avgTemp = NAN; // current moving average (NAN until the first valid read)
+
 bool haveDisplay = false;
 
 // readThermocouple returns °C, or NAN if the thermocouple is open/disconnected.
@@ -62,6 +73,25 @@ double readThermocouple() {
   }
   v >>= 3; // drop status bits; remaining count is in 0.25 °C steps
   return v * 0.25 - TEMP_OFFSET;
+}
+
+// recordReading folds one raw reading into the moving-average window and updates
+// avgTemp. NaN readings (open thermocouple) are ignored so a transient glitch
+// can't poison the average — avgTemp simply holds its previous value.
+void recordReading(double t) {
+  if (isnan(t)) {
+    return;
+  }
+  sampleBuf[sampleHead] = t;
+  sampleHead = (sampleHead + 1) % AVG_SAMPLES;
+  if (sampleCount < AVG_SAMPLES) {
+    sampleCount++;
+  }
+  double sum = 0.0;
+  for (int i = 0; i < sampleCount; i++) {
+    sum += sampleBuf[i];
+  }
+  avgTemp = sum / sampleCount;
 }
 
 // renderDisplay shows the temperature on the OLED (no-op if none was detected).
@@ -157,23 +187,23 @@ void loop() {
   ensureMqtt();
   mqtt.loop();
 
-  // Read the thermocouple and refresh the local display ~1 Hz.
+  // Sample the thermocouple into the moving average and refresh the display ~1 Hz.
   if (millis() - lastRead >= READ_INTERVAL_MS) {
     lastRead = millis();
-    lastTemp = readThermocouple();
-    renderDisplay(lastTemp);
+    recordReading(readThermocouple());
+    renderDisplay(avgTemp);
   }
 
-  // Publish the latest reading every PUBLISH_INTERVAL_MS.
+  // Publish the moving average every PUBLISH_INTERVAL_MS.
   if (millis() - lastPublish >= PUBLISH_INTERVAL_MS) {
     lastPublish = millis();
-    if (isnan(lastTemp)) {
-      Serial.println("thermocouple open; skipping publish");
+    if (isnan(avgTemp)) {
+      Serial.println("no valid reading yet; skipping publish");
       return;
     }
     char payload[96];
     snprintf(payload, sizeof(payload),
-             "{\"value\":%.2f,\"unit\":\"C\",\"sensor_id\":\"%s\"}", lastTemp, SENSOR_ID);
+             "{\"value\":%.2f,\"unit\":\"C\",\"sensor_id\":\"%s\"}", avgTemp, SENSOR_ID);
     bool ok = mqtt.connected() && mqtt.publish(topic, payload);
     Serial.print("publish ");
     Serial.print(topic);
