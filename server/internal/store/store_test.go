@@ -86,6 +86,25 @@ func TestHistoryFromCutoff(t *testing.T) {
 	}
 }
 
+func TestLatestTiebreakOnEqualReceivedAt(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// Burst backfill: all rows share received_at=5000 but carry different
+	// event_times. Latest must deterministically return the greatest event_time.
+	mustInsert(t, s, "s1", 1.0, 1000, 5000) // oldest event
+	mustInsert(t, s, "s1", 2.0, 9000, 5000) // newest event -> should win
+	mustInsert(t, s, "s1", 3.0, 4000, 5000) // middle
+
+	l, ok, err := s.Latest(ctx, "s1")
+	if err != nil || !ok {
+		t.Fatalf("Latest = ok %v err %v", ok, err)
+	}
+	if l.EventTime != 9000 || l.Value != 2.0 {
+		t.Fatalf("Latest = %+v; want event_time=9000 value=2 (greatest event_time among equal received_at)", l)
+	}
+}
+
 func mustInsert(t *testing.T, s *Store, sensorID string, value float64, eventTime, receivedAt int64) {
 	t.Helper()
 	if err := s.Insert(context.Background(), sensorID, value, "C", eventTime, receivedAt); err != nil {

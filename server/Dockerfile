@@ -5,10 +5,11 @@ FROM golang:1.22-alpine AS build
 RUN apk add --no-cache ca-certificates
 WORKDIR /src
 
-# Copy sources and resolve deps. go.sum is generated here (the dev machine has
-# no Go toolchain), so `go mod tidy` runs before the build.
+# Resolve deps first (cached layer; only re-runs when go.mod/go.sum change).
+# go.sum is committed, so the build is reproducible and checksum-verified.
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /tempmon ./cmd/tempmon
 
 # --- runtime stage (static, minimal) ----------------------------------------
