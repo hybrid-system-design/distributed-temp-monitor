@@ -48,7 +48,8 @@ docker compose down                    # stop (add -v to wipe the DB volume)
 ```
 
 Then open **http://localhost:8080/** in a browser for the live dashboard (current
-value + 48h chart + staleness badge). Append `?sensor_id=<id>` to pick a sensor.
+value, selectable-window chart with hover tooltips, staleness badge). Append
+`?sensor_id=<id>` to pick a sensor.
 
 The DB lives in the named volume `tempdb` (`/data/tempmon.db` in the container),
 so data survives restarts. Both services use `restart: unless-stopped`, so the
@@ -145,8 +146,10 @@ Query params: `hours` (default 48, clamped ≤720), `bucket` seconds (default 60
 
 **`GET /healthz`** — `{"ok":true}`.
 
-**`GET /`** — self-contained web dashboard (live value + 48h chart + stale badge);
-polls the two endpoints above. No external assets, so it works offline.
+**`GET /`** — self-contained interactive web dashboard: live value + stale badge,
+a chart with a selectable time window (24h / 48h / 7 days), time-axis labels, a
+hover tooltip (avg/min/max per bucket), and a shaded min–max band. Polls the two
+endpoints above. No external assets, so it works offline.
 
 ## Configuration (server env vars)
 

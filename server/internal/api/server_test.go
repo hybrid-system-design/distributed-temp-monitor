@@ -107,8 +107,16 @@ func TestDashboardServedAtRoot(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
 		t.Errorf("Content-Type = %q, want text/html", ct)
 	}
-	if !strings.Contains(rec.Body.String(), "Temperature Monitor") {
-		t.Errorf("dashboard body missing expected marker")
+	body := rec.Body.String()
+	for _, marker := range []string{
+		"Temperature Monitor", // title
+		`id="windows"`,        // time-window button container
+		`id="tip"`,            // hover tooltip element
+		`id="chart"`,          // SVG chart
+	} {
+		if !strings.Contains(body, marker) {
+			t.Errorf("dashboard body missing expected marker %q", marker)
+		}
 	}
 }
 
