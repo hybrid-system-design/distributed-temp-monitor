@@ -21,8 +21,10 @@ ESP32 sensor (Arduino) --MQTT--> Broker + Go service --HTTP--> ESP32 display (Ci
 - [x] GitHub Actions CI (lint, race, integration, docker, firmware build)
 
 ## Phase 2 — Sensor node + web UI (next)
-- [ ] Sensor (Arduino): strip controller code, publish temperature over MQTT
-- [ ] Sensor: reconnect cleanly on WiFi/broker drop
+- [x] Sensor (Arduino): strip controller code, publish temperature over MQTT
+- [x] Sensor: moving-average smoothing (noisy thermocouple)
+- [x] Sensor: local OLED readout (`T: <temp> C`)
+- [x] Sensor: reconnect cleanly on WiFi/broker drop
 - [ ] Web UI: `GET /` serves a self-contained page (live value + 48h chart + stale badge), no CDN
 - [ ] End-to-end: real sensor → broker → service → browser
 

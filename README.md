@@ -186,9 +186,12 @@ go test -tags integration -count=1 ./internal/integration/...   # needs Docker
 
 ## Sensor firmware (`firmware/sensor/`)
 
-A dumb Arduino sensor node: reads the MAX6675 thermocouple and publishes the MQTT
-payload above to `sensors/<SENSOR_ID>/temperature` every 5 s, reconnecting WiFi
-and MQTT as needed. No display/relay/clock — the server stamps arrival time.
+A dumb Arduino sensor node: reads the MAX6675 thermocouple (reported as a moving
+average of the last 5 readings, since it's noisy), shows `T: <temp> C` on a local
+SSD1306 OLED, and publishes the MQTT payload above to
+`sensors/<SENSOR_ID>/temperature` every 5 s, reconnecting WiFi and MQTT as needed.
+No relay/clock — the server stamps arrival time. The OLED is optional (the sketch
+runs without it).
 
 ```
 cp firmware/sensor/secrets.example.h firmware/sensor/secrets.h   # set WiFi + broker
@@ -196,7 +199,8 @@ arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 firmware/sensor
 arduino-cli upload  --fqbn esp32:esp32:esp32doit-devkit-v1 --port COM4 firmware/sensor
 ```
 
-Requires the `PubSubClient` library. CI compiles this sketch on every push.
+Requires the `PubSubClient`, `Adafruit GFX`, and `Adafruit SSD1306` libraries.
+CI compiles this sketch on every push.
 
 ## Phase 3 — display node (not yet implemented)
 
