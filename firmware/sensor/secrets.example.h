@@ -9,5 +9,5 @@
 #define MQTT_BROKER   "192.168.1.50"
 #define MQTT_PORT     1883
 
-// Identifies this sensor; publishes to sensors/<SENSOR_ID>/temperature.
-#define SENSOR_ID     "fermenter-1"
+// Note: the room/sensor name is chosen on the device with the button
+// (soverom / jenterom / gutterom / stue), not configured here.

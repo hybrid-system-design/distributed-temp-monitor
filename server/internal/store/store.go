@@ -144,3 +144,26 @@ func (s *Store) History(ctx context.Context, sensorID string, from int64, bucket
 	}
 	return out, nil
 }
+
+// Sensors returns the distinct sensor ids that have ever reported, sorted.
+func (s *Store) Sensors(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT DISTINCT sensor_id FROM samples ORDER BY sensor_id`)
+	if err != nil {
+		return nil, fmt.Errorf("sensors query: %w", err)
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("sensors scan: %w", err)
+		}
+		out = append(out, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("sensors rows: %w", err)
+	}
+	return out, nil
+}

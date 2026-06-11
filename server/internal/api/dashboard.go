@@ -23,6 +23,9 @@ const dashboardHTML = `<!doctype html>
   h1 { font-size:.95rem; font-weight:600; color:#8b97a4; letter-spacing:.02em;
        margin:0 0 20px; }
   h1 span { color:#e6edf3; }
+  #sensorsel { background:#161b22; color:#e6edf3; border:1px solid #30363d;
+               border-radius:6px; padding:3px 8px; font-size:.95rem;
+               font-family:inherit; cursor:pointer; }
   .reading { display:flex; align-items:baseline; gap:6px; }
   .val { font-size:4.5rem; font-weight:700; line-height:1; letter-spacing:-.02em;
          font-variant-numeric:tabular-nums; }
@@ -61,7 +64,7 @@ const dashboardHTML = `<!doctype html>
 </head>
 <body>
 <div class="wrap">
-  <h1>Temperature Monitor — <span id="sensor"></span></h1>
+  <h1>Temperature Monitor — <select id="sensorsel" title="sensor / room"></select></h1>
   <div class="reading">
     <span class="val" id="value">--</span><span class="unit">°C</span>
     <span class="badge" id="badge">…</span>
@@ -79,7 +82,7 @@ const dashboardHTML = `<!doctype html>
 var SVGNS = "http://www.w3.org/2000/svg";
 var params = new URLSearchParams(location.search);
 var sensor = params.get("sensor_id") || "fermenter-1";
-document.getElementById("sensor").textContent = sensor;
+var sensorsKey = ""; // join of the last-rendered dropdown options
 
 // window label -> {hours, bucket}. Bucket sized for a clean point count.
 var WINDOWS = {
@@ -114,6 +117,27 @@ async function refreshCurrent() {
     if (d.stale) { el("badge").textContent = "stale"; el("badge").className = "badge stale"; }
     else { el("badge").textContent = "live"; el("badge").className = "badge live"; }
   } catch (e) { el("meta").textContent = "connection error"; }
+}
+
+async function refreshSensors() {
+  try {
+    var r = await fetch("/api/sensors");
+    if (!r.ok) return;
+    var d = await r.json();
+    var names = d.sensors || [];
+    if (names.indexOf(sensor) < 0) names = [sensor].concat(names); // keep current visible
+    var key = names.join("|");
+    if (key === sensorsKey) return; // unchanged — don't disturb an open dropdown
+    sensorsKey = key;
+    var sel = el("sensorsel");
+    sel.innerHTML = "";
+    names.forEach(function (nm) {
+      var o = document.createElement("option");
+      o.value = nm; o.textContent = nm;
+      if (nm === sensor) o.selected = true;
+      sel.appendChild(o);
+    });
+  } catch (e) {}
 }
 
 function setWindow(name) {
@@ -270,7 +294,16 @@ function onLeave() {
   svg.addEventListener("mousemove", onMove);
   svg.addEventListener("mouseleave", onLeave);
 
-  refreshCurrent(); refreshHistory();
+  el("sensorsel").onchange = function () {
+    sensor = this.value;
+    var u = new URL(location.href);
+    u.searchParams.set("sensor_id", sensor);
+    history.replaceState(null, "", u);
+    refreshCurrent(); refreshHistory();
+  };
+
+  refreshSensors(); refreshCurrent(); refreshHistory();
+  setInterval(refreshSensors, 30000);
   setInterval(refreshCurrent, 3000);
   setInterval(refreshHistory, 60000);
 })();
