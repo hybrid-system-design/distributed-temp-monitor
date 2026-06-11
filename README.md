@@ -25,12 +25,14 @@ ESP32 (Arduino, sensor)  --MQTT-->  Broker + Go service  --HTTP-->  ESP32 (Circu
 | `tools/simulator/` | Replay/simulator that publishes a canned 48h series to the broker |
 | `deploy/` | `docker-compose.yml` (broker + service + volume) and `mosquitto.conf` |
 | `firmware/sensor/` | Sensor node firmware (Arduino): reads MAX6675, publishes over MQTT |
-| `bustime-display-main/` | Display node firmware (CircuitPython) — repurposed in Phase 3 |
+| `firmware/display/` | Display node firmware (CircuitPython): auto-rotating room display |
+| `bustime-display-main/` | Original bus display — superseded by `firmware/display/` |
 | `esp_brewfather_connect_temp_kontroller-hsd-portfolio/` | Original Brewfather controller — superseded by `firmware/sensor/` |
 
-> **Status:** Phase 1 (server + infra) and Phase 2 (sensor firmware + web UI) are
-> implemented. The ESP32 display node is Phase 3 (see `ROADMAP.md`). The data
-> contract is fixed so each node has a stable seam to target.
+> **Status:** all three nodes are implemented — server + infra, the sensor
+> firmware + web UI, and the CircuitPython display. The display is
+> software-complete and pending on-hardware verification. The data contract is
+> fixed so each node has a stable seam to target.
 
 ## One-command bring-up
 
@@ -224,10 +226,17 @@ arduino-cli upload  --fqbn esp32:esp32:esp32doit-devkit-v1 --port COM4 firmware/
 Requires the `PubSubClient`, `Adafruit GFX`, and `Adafruit SSD1306` libraries.
 CI compiles this sketch on every push.
 
-## Phase 3 — display node (not yet implemented)
+## Display node (`firmware/display/`)
 
-Repurpose the CircuitPython display (`bustime-display-main/`): replace the Entur
-GraphQL polling with `GET /api/current` (~1s) and `GET /api/history` (~60s); reuse
-the existing `adafruit_requests` + `displayio` scaffold; render the live value,
-the 48h graph, and a "last seen" staleness banner when `stale` is true. See
-`ROADMAP.md`.
+A read-only CircuitPython wall display (ESP32 + ILI9341 320×240). It auto-rotates
+through every room from `/api/sensors` and, for the room on screen, shows the big
+live value, a stale/last-seen chip, and a 48h min–max graph (linear time axis,
+gaps shown as breaks). No buttons.
+
+Config in `settings.toml` (gitignored — copy from `settings.example.toml`):
+`CIRCUITPY_WIFI_SSID`/`PASSWORD` (CircuitPython auto-connects), `TEMPMON_BASE_URL`,
+`ROTATE_SECONDS`. Deploy by copying `code.py` + `graphutil.py` and the Adafruit
+libs (`adafruit_requests`, `adafruit_ili9341`, `adafruit_display_text`) to the
+device via the CircuitPython **web editor** (this board isn't a USB drive). The
+pure graph/format helpers in `graphutil.py` are unit-tested (`test_graphutil.py`),
+and CI syntax-checks `code.py`. See `docs/phase-3-display-node.md`.

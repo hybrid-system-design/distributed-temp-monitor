@@ -27,16 +27,16 @@ ESP32 sensor (Arduino) --MQTT--> Broker + Go service --HTTP--> ESP32 display (Ci
 - [x] Sensor: button-cycled room selection (soverom/jenterom/gutterom/stue)
 - [x] Sensor: reconnect cleanly on WiFi/broker drop
 - [x] Web UI: self-contained dashboard — live value, interactive chart (window selector, time axis, hover, gaps), room dropdown
-- [ ] End-to-end: real sensor → broker → service → browser
+- [x] End-to-end: real sensor → broker → service → browser
 
 ## Phase 3 — Display node (ESP32 CircuitPython)
-- [ ] Poll `/api/current` for the live value
-- [ ] Poll `/api/history`, draw the 48h graph
-- [ ] "Last seen" staleness indicator
+- [x] Auto-rotate all rooms (from `/api/sensors`)
+- [x] Live value + room name
+- [x] 48h min–max graph (linear time axis, gaps shown)
+- [x] "Last seen" staleness indicator
 - [ ] End-to-end test on real hardware
 
 ## Later — maybe
-- [ ] Multiple sensors on one display
 - [ ] MQTT auth / TLS
 - [ ] History retention / compaction policy
 
