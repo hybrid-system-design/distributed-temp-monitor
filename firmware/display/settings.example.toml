@@ -1,0 +1,13 @@
+# Copy to settings.toml on the device (settings.toml is gitignored).
+# CircuitPython auto-connects WiFi from these two at boot:
+CIRCUITPY_WIFI_SSID = "your-wifi-ssid"
+CIRCUITPY_WIFI_PASSWORD = "your-wifi-password"
+
+# Base URL of the Go service (the docker-compose host).
+TEMPMON_BASE_URL = "http://192.168.1.50:8080"
+
+# Seconds each room is shown before rotating to the next.
+ROTATE_SECONDS = 10
+
+# Whole-hour offset from UTC for the graph's X-axis time labels (1 = CET, 2 = CEST).
+UTC_OFFSET_HOURS = 0

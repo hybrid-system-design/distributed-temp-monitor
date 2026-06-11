@@ -96,6 +96,13 @@ func TestHistoryShape(t *testing.T) {
 	if resp.Points[0].Avg != 15.0 || resp.Points[0].N != 2 {
 		t.Errorf("point = %+v, want avg=15 n=2", resp.Points[0])
 	}
+	// unix ts fields (for the device) must be populated and consistent
+	if resp.FromTS <= 0 || resp.ToTS < resp.FromTS {
+		t.Errorf("from_ts/to_ts = %d/%d, want positive and ordered", resp.FromTS, resp.ToTS)
+	}
+	if resp.Points[0].TS <= 0 || resp.Points[0].TS%int64(resp.BucketSeconds) != 0 {
+		t.Errorf("point ts = %d, want positive bucket-aligned", resp.Points[0].TS)
+	}
 }
 
 func TestDashboardServedAtRoot(t *testing.T) {

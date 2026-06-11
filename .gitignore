@@ -37,6 +37,10 @@ go.work.sum
 secrets.h
 settings.toml
 
+# Python bytecode (from local py_compile / tests)
+__pycache__/
+*.pyc
+
 # Claude Code local state
 .claude/
 

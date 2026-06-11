@@ -102,8 +102,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: CircuitPython syntax check
+      - name: CircuitPython checks
         run: |
+          # display node: syntax-check + run the pure-helper unit tests
+          python -m py_compile firmware/display/code.py firmware/display/graphutil.py
+          python firmware/display/test_graphutil.py
+          # original bus display (historical), syntax-check only
           python -m py_compile \
             bustime-display-main/bustime-display-main/esp.py \
             bustime-display-main/bustime-display-main/test.py
