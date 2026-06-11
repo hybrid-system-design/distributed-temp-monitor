@@ -113,6 +113,7 @@ func TestDashboardServedAtRoot(t *testing.T) {
 		`id="windows"`,        // time-window button container
 		`id="tip"`,            // hover tooltip element
 		`id="chart"`,          // SVG chart
+		`id="sensorsel"`,      // sensor/room dropdown
 	} {
 		if !strings.Contains(body, marker) {
 			t.Errorf("dashboard body missing expected marker %q", marker)
@@ -124,6 +125,44 @@ func TestUnknownPathIs404(t *testing.T) {
 	srv, _ := newTestServer(t)
 	if rec := do(srv, "/nope"); rec.Code != http.StatusNotFound {
 		t.Fatalf("GET /nope status = %d, want 404", rec.Code)
+	}
+}
+
+func TestSensorsList(t *testing.T) {
+	srv, st := newTestServer(t)
+	now := time.Now().Unix()
+	// Insert out of order, with a duplicate, across sensors.
+	for _, s := range []struct {
+		id string
+		v  float64
+	}{{"stue", 20}, {"soverom", 19}, {"stue", 21}, {"gutterom", 18}} {
+		if err := st.Insert(context.Background(), s.id, s.v, "C", now, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var resp struct {
+		Sensors []string `json:"sensors"`
+	}
+	decode(t, do(srv, "/api/sensors"), &resp)
+	want := []string{"gutterom", "soverom", "stue"} // distinct, sorted
+	if len(resp.Sensors) != len(want) {
+		t.Fatalf("got %v, want %v", resp.Sensors, want)
+	}
+	for i := range want {
+		if resp.Sensors[i] != want[i] {
+			t.Fatalf("got %v, want %v", resp.Sensors, want)
+		}
+	}
+}
+
+func TestSensorsEmpty(t *testing.T) {
+	srv, _ := newTestServer(t)
+	var resp struct {
+		Sensors []string `json:"sensors"`
+	}
+	decode(t, do(srv, "/api/sensors"), &resp)
+	if resp.Sensors == nil || len(resp.Sensors) != 0 {
+		t.Fatalf("empty DB should give [], got %v", resp.Sensors)
 	}
 }
 

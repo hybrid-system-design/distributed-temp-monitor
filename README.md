@@ -146,13 +146,18 @@ defaults, comfortably under the 320px display width):
 
 Query params: `hours` (default 48, clamped ≤720), `bucket` seconds (default 600).
 
+**`GET /api/sensors`** — distinct sensor ids that have reported, sorted:
+`{"sensors":["fermenter-1","gutterom","soverom","stue"]}`. Powers the dashboard
+dropdown.
+
 **`GET /healthz`** — `{"ok":true}`.
 
 **`GET /`** — self-contained interactive web dashboard: live value + stale badge,
 a chart with a selectable time window (24h / 48h / 7 days), time-axis labels, a
-hover tooltip (avg/min/max per bucket), and a shaded min–max band. The X-axis is
-linear in time, and missing data shows as real gaps (the line breaks rather than
-interpolating across). Polls the two endpoints above; no external assets, so it
+hover tooltip (avg/min/max per bucket), a shaded min–max band, and a sensor/room
+dropdown (from `/api/sensors`). The X-axis is linear in time, and missing data
+shows as real gaps (the line breaks rather than interpolating across). Polls the
+endpoints above; no external assets, so it
 works offline.
 
 ## Configuration (server env vars)
@@ -194,11 +199,21 @@ go test -tags integration -count=1 ./internal/integration/...   # needs Docker
 ## Sensor firmware (`firmware/sensor/`)
 
 A dumb Arduino sensor node: reads the MAX6675 thermocouple (reported as a moving
-average of the last 5 readings, since it's noisy), shows `T: <temp> C` on a local
-SSD1306 OLED, and publishes the MQTT payload above to
-`sensors/<SENSOR_ID>/temperature` every 5 s, reconnecting WiFi and MQTT as needed.
-No relay/clock — the server stamps arrival time. The OLED is optional (the sketch
-runs without it).
+average of the last 5 readings, since it's noisy), shows `T: <temp> C` + the
+selected room on a local SSD1306 OLED, and publishes the MQTT payload above to
+`sensors/<room>/temperature` every 5 s, reconnecting WiFi and MQTT as needed.
+No relay/clock — the server stamps arrival time. The OLED is optional.
+
+**Room selection.** The unit is moved between rooms; a button (GPIO 25) cycles
+the room name (`soverom` → `jenterom` → `gutterom` → `stue` → …). On power-up
+**no room is selected and nothing is published** until you press the button to
+pick one — so a reading is never logged under the wrong room. After a switch the
+first send waits ~5 s, letting the probe settle in the new room. No persistence:
+after a power cycle you select the room again.
+
+**Pause.** A second button (GPIO 26) toggles publishing on/off — readings still
+update on the OLED, but nothing is sent (the OLED shows `PAUSED`). Press again to
+resume.
 
 ```
 cp firmware/sensor/secrets.example.h firmware/sensor/secrets.h   # set WiFi + broker

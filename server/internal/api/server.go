@@ -35,6 +35,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/", s.handleDashboard)
 	mux.HandleFunc("/api/current", s.handleCurrent)
 	mux.HandleFunc("/api/history", s.handleHistory)
+	mux.HandleFunc("/api/sensors", s.handleSensors)
 	mux.HandleFunc("/healthz", s.handleHealth)
 	return cors(mux)
 }
@@ -144,6 +145,19 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		To:            unixToRFC3339(now.Unix()),
 		Points:        points,
 	})
+}
+
+func (s *Server) handleSensors(w http.ResponseWriter, r *http.Request) {
+	list, err := s.store.Sensors(r.Context())
+	if err != nil {
+		s.log.Printf("api: sensors: %v", err)
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if list == nil {
+		list = []string{} // serialize as [] not null
+	}
+	writeJSON(w, http.StatusOK, map[string][]string{"sensors": list})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
