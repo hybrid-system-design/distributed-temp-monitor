@@ -57,12 +57,14 @@ stack comes back on reboot — identical on an always-on host or a demo laptop.
 
 ## Demo without hardware (simulator)
 
-Backfill 48h of realistic history, then optionally stream live samples:
+Backfill 48h of realistic history, then optionally stream live samples. The
+simulator publishes under its own sensor id (default `sim`) so demo data never
+mixes with a real sensor like `fermenter-1` — view it at `/?sensor_id=sim`.
 
 ```bash
 cd tools/simulator
-go run . --broker tcp://localhost:1883 --sensor-id fermenter-1            # backfill
-go run . --broker tcp://localhost:1883 --sensor-id fermenter-1 --live     # backfill + live
+go run . --broker tcp://localhost:1883            # backfill as sensor "sim"
+go run . --broker tcp://localhost:1883 --live     # backfill + live
 ```
 
 Flags: `--hours` (default 48), `--step` (default `5m`), `--setpoint` (°C),
@@ -148,8 +150,10 @@ Query params: `hours` (default 48, clamped ≤720), `bucket` seconds (default 60
 
 **`GET /`** — self-contained interactive web dashboard: live value + stale badge,
 a chart with a selectable time window (24h / 48h / 7 days), time-axis labels, a
-hover tooltip (avg/min/max per bucket), and a shaded min–max band. Polls the two
-endpoints above. No external assets, so it works offline.
+hover tooltip (avg/min/max per bucket), and a shaded min–max band. The X-axis is
+linear in time, and missing data shows as real gaps (the line breaks rather than
+interpolating across). Polls the two endpoints above; no external assets, so it
+works offline.
 
 ## Configuration (server env vars)
 

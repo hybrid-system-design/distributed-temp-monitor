@@ -134,7 +134,7 @@ async function refreshHistory() {
     if (!r.ok) return;
     var d = await r.json();
     lastPoints = d.points || [];
-    drawChart(lastPoints);
+    drawChart(lastPoints, d.from, d.to);
   } catch (e) {}
 }
 
@@ -149,21 +149,30 @@ function axisText(svg, x, y, s, anchor) {
   t.textContent = s; svg.appendChild(t);
 }
 
-function drawChart(points) {
+// drawChart plots points on a LINEAR time axis spanning [fromStr, toStr], so
+// gaps in the data show as real gaps. The line/band are broken wherever buckets
+// are missing (a time step larger than ~1.5 buckets) rather than drawn straight
+// across — missing data is not faked as continuous.
+function drawChart(points, fromStr, toStr) {
   var svg = el("chart"); clearSvg(svg); geom = null;
   if (!points || !points.length) return;
 
   var W = 640, H = 280, padL = 46, padR = 14, padT = 16, padB = 38;
   var plotW = W - padL - padR, plotH = H - padT - padB;
 
+  var t0 = new Date(fromStr).getTime();
+  var t1 = new Date(toStr).getTime();
+  if (!(t1 > t0)) t1 = t0 + 1;
+
   var mins = points.map(function (p) { return p.min; });
   var maxs = points.map(function (p) { return p.max; });
+  var times = points.map(function (p) { return new Date(p.t).getTime(); });
   var lo = Math.min.apply(null, mins), hi = Math.max.apply(null, maxs);
   if (hi - lo < 1) { var m = (hi + lo) / 2; lo = m - 0.5; hi = m + 0.5; }
-  var n = points.length;
-  function px(i) { return padL + i * plotW / Math.max(1, n - 1); }
+
+  function px(tms) { return padL + (tms - t0) / (t1 - t0) * plotW; }
   function py(v) { return padT + (hi - v) * plotH / (hi - lo); }
-  geom = { padL: padL, plotW: plotW, n: n };
+  geom = { padL: padL, plotW: plotW, t0: t0, t1: t1, times: times };
 
   // horizontal grid + y-axis labels
   var GRID = 4;
@@ -173,22 +182,38 @@ function drawChart(points) {
     axisText(svg, padL - 7, yy + 4, val.toFixed(1), "end");
   }
 
-  // min–max band
-  var band = "";
-  for (var i = 0; i < n; i++) band += px(i).toFixed(1) + "," + py(maxs[i]).toFixed(1) + " ";
-  for (var j = n - 1; j >= 0; j--) band += px(j).toFixed(1) + "," + py(mins[j]).toFixed(1) + " ";
-  svg.appendChild(mk("polygon", { points: band, "class": "band" }));
+  // split into contiguous segments, breaking on missing buckets
+  var bucketMs = WINDOWS[activeWindow].bucket * 1000;
+  var gapMs = bucketMs * 1.5;
+  var segments = [], cur = [0];
+  for (var i = 1; i < points.length; i++) {
+    if (times[i] - times[i - 1] > gapMs) { segments.push(cur); cur = []; }
+    cur.push(i);
+  }
+  segments.push(cur);
 
-  // average line
-  var line = points.map(function (p, i) { return px(i).toFixed(1) + "," + py(p.avg).toFixed(1); }).join(" ");
-  svg.appendChild(mk("polyline", { points: line, "class": "line" }));
+  // draw a min–max band + average line per segment (isolated points -> a dot)
+  segments.forEach(function (seg) {
+    if (seg.length === 1) {
+      var s = seg[0];
+      svg.appendChild(mk("circle", { cx: px(times[s]).toFixed(1), cy: py(points[s].avg).toFixed(1),
+                                     r: 1.8, fill: "#3fb950" }));
+      return;
+    }
+    var band = "";
+    for (var a = 0; a < seg.length; a++) band += px(times[seg[a]]).toFixed(1) + "," + py(maxs[seg[a]]).toFixed(1) + " ";
+    for (var b = seg.length - 1; b >= 0; b--) band += px(times[seg[b]]).toFixed(1) + "," + py(mins[seg[b]]).toFixed(1) + " ";
+    svg.appendChild(mk("polygon", { points: band, "class": "band" }));
+    var line = seg.map(function (idx) { return px(times[idx]).toFixed(1) + "," + py(points[idx].avg).toFixed(1); }).join(" ");
+    svg.appendChild(mk("polyline", { points: line, "class": "line" }));
+  });
 
-  // x-axis time labels
-  var LBL = Math.min(6, n);
+  // x-axis time labels, evenly spaced across the window (linear in time)
+  var LBL = 6;
   for (var k = 0; k < LBL; k++) {
-    var idx = Math.round(k * (n - 1) / Math.max(1, LBL - 1));
+    var tk = t0 + (t1 - t0) * k / (LBL - 1);
     var anchor = k === 0 ? "start" : (k === LBL - 1 ? "end" : "middle");
-    axisText(svg, px(idx), H - padB + 18, fmtAxis(new Date(points[idx].t)), anchor);
+    axisText(svg, px(tk), H - padB + 18, fmtAxis(new Date(tk)), anchor);
   }
 
   // hover hairline (hidden until mouse enters)
@@ -200,10 +225,19 @@ function onMove(ev) {
   if (!geom || !lastPoints.length) return;
   var svg = el("chart"), rect = svg.getBoundingClientRect();
   var vbx = (ev.clientX - rect.left) / rect.width * 640;
-  var i = Math.round((vbx - geom.padL) / geom.plotW * (geom.n - 1));
-  if (i < 0) i = 0; if (i > geom.n - 1) i = geom.n - 1;
-  var p = lastPoints[i];
-  var x = geom.padL + i * geom.plotW / Math.max(1, geom.n - 1);
+  var tms = geom.t0 + (vbx - geom.padL) / geom.plotW * (geom.t1 - geom.t0);
+
+  // nearest point by time
+  var best = -1, bestd = Infinity;
+  for (var i = 0; i < geom.times.length; i++) {
+    var dd = Math.abs(geom.times[i] - tms);
+    if (dd < bestd) { bestd = dd; best = i; }
+  }
+  // hovering an empty stretch (no bucket within ~1.5 buckets) -> no tooltip
+  if (best < 0 || bestd > WINDOWS[activeWindow].bucket * 1000 * 1.5) { onLeave(); return; }
+
+  var p = lastPoints[best];
+  var x = geom.padL + (geom.times[best] - geom.t0) / (geom.t1 - geom.t0) * geom.plotW;
 
   var hair = el("hair");
   if (hair) { hair.setAttribute("x1", x); hair.setAttribute("x2", x); hair.setAttribute("visibility", "visible"); }

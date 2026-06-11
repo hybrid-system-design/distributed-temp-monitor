@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Working preferences
+
+- **Do not create or suggest pull requests on your own.** After finishing a piece of work, present it and let the user check/verify it first. Only open a PR (or even propose opening one) when the user explicitly asks. The same goes for pushing and merging — wait for the user's go-ahead.
+
 ## Repository Overview
 
 This is a portfolio repository containing two independent embedded systems / IoT projects for ESP32-class microcontrollers, developed for Hybrid System Design.

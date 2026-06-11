@@ -5,8 +5,8 @@
 // true past timestamp, which the server honors via its sanity window), then —
 // with --live — keeps emitting fresh samples at the configured step.
 //
-//	go run . --broker tcp://localhost:1883 --sensor-id fermenter-1
-//	go run . --broker tcp://localhost:1883 --sensor-id fermenter-1 --live
+//	go run . --broker tcp://localhost:1883                 # publishes as sensor "sim"
+//	go run . --broker tcp://localhost:1883 --live          # backfill then keep emitting
 package main
 
 import (
@@ -29,7 +29,7 @@ type sample struct {
 
 func main() {
 	broker := flag.String("broker", "tcp://localhost:1883", "MQTT broker URL")
-	sensorID := flag.String("sensor-id", "fermenter-1", "sensor id")
+	sensorID := flag.String("sensor-id", "sim", "sensor id (defaults to 'sim' so demo data never mixes with a real sensor)")
 	hours := flag.Int("hours", 48, "hours of history to backfill")
 	step := flag.Duration("step", 5*time.Minute, "interval between samples")
 	setpoint := flag.Float64("setpoint", 19.0, "baseline temperature (C)")
