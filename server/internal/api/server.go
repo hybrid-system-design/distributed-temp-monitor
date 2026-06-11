@@ -51,7 +51,8 @@ type currentResponse struct {
 }
 
 type point struct {
-	T   string  `json:"t"`
+	T   string  `json:"t"`  // RFC3339 (human/web)
+	TS  int64   `json:"ts"` // unix seconds (device-friendly time math)
 	Avg float64 `json:"avg"`
 	Min float64 `json:"min"`
 	Max float64 `json:"max"`
@@ -64,6 +65,8 @@ type historyResponse struct {
 	BucketSeconds int     `json:"bucket_seconds"`
 	From          string  `json:"from"`
 	To            string  `json:"to"`
+	FromTS        int64   `json:"from_ts"` // unix seconds
+	ToTS          int64   `json:"to_ts"`   // unix seconds
 	Points        []point `json:"points"`
 }
 
@@ -131,6 +134,7 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	for _, b := range buckets {
 		points = append(points, point{
 			T:   unixToRFC3339(b.T),
+			TS:  b.T,
 			Avg: round1(b.Avg),
 			Min: round1(b.Min),
 			Max: round1(b.Max),
@@ -143,6 +147,8 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		BucketSeconds: bucket,
 		From:          unixToRFC3339(from),
 		To:            unixToRFC3339(now.Unix()),
+		FromTS:        from,
+		ToTS:          now.Unix(),
 		Points:        points,
 	})
 }
